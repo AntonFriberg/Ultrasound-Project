@@ -1,4 +1,4 @@
-Ta faktiska insamlade amplituder och lägg ovanpå rough amplitudes. 
+%Ta faktiska insamlade amplituder och lägg ovanpå rough amplitudes. 
 
 %% Initialize experiment parameters
 file = 'data.xlsx';                         % Excel file with data contents
@@ -35,23 +35,15 @@ figure('Visible', 'off'); hold on;
 set(gcf, 'PaperUnits', 'centimeters');      % set size units to cm
 set(gcf, 'PaperPosition', [0 0 24 14]);     % set size
     
-subplot(2,2,1);
-plot(distance_vector,amp_1000); title('1000 Hz');
-xlabel('Distance (m)'); ylabel('Amplitude (V p-to-p)');
-
-subplot(2,2,2);
-plot(distance_vector,amp_5000); title('5000 Hz');
-xlabel('Distance (m)'); ylabel('Amplitude (V p-to-p)');
-
-subplot(2,2,3);
-plot(distance_vector,amp_10000); title('10000 Hz');
-xlabel('Distance (m)'); ylabel('Amplitude (V p-to-p)');
-
-subplot(2,2,4);
-plot(distance_vector,amp_15000); title('15000 Hz');
-xlabel('Distance (m)'); ylabel('Amplitude (V p-to-p)');
-    
-suptitle(sprintf('Rough Amplitudes', 18-i));
+hold on; grid minor;
+title('Rough Amplitudes');
+p1 = plot(distance_vector,arrayfun(@spl,amp_1000));
+p5 = plot(distance_vector,arrayfun(@spl,amp_5000));
+p10 = plot(distance_vector,arrayfun(@spl,amp_10000));
+p15 = plot(distance_vector,arrayfun(@spl,amp_15000));
+ylim([55 85]);
+xlabel('Distance (m)'); ylabel('Sound Pressure Level (dB)');
+legend([p1,p5,p10,p15], {'1000 Hz','5000 Hz','10000 Hz','15000 Hz'});
 filename = 'output/rough_amp';
 saveas(gcf, filename, 'png');
 
@@ -117,11 +109,6 @@ for i = 1:17
     freq_15000(:,i) = abs(fftshift(fft(mic_15000(:,i))))/N;
 end
 
-dF = Fs/N;                                  % listening frequency hertz
-frequency_vector = -Fs/2:dF:Fs/2-dF;        % hertz
-figure;
-semilogy(frequency_vector(N/2:end), freq_5000(N/2:end,1))
-
 %% Plot the logarithmic frequency amplitude data to image files
 for i = 1:17;
     figure('Visible', 'off'); hold on;
@@ -153,13 +140,133 @@ for i = 1:17;
     saveas(gcf, filename, 'png');
 end
 
-%% Plot amplitude
-nbr_sample = length(amplitude1000);
-xrange = linspace(0, collected_time, nbr_sample);
-plot(xrange, amplitude1000)
+%% Peak analysis of microphone readings
+clc;
+for i = 1:17;
+    % 1000 Hz
+    u_peak = findpeaks(mic_1000(3200:11000,i), 'MinPeakHeight', 0.01, ...
+                                               'MinPeakDistance', 200);
+    l_peak = findpeaks(-mic_1000(3200:11000,i),'MinPeakHeight', 0.01, ...
+                                               'MinPeakDistance', 200);
+    limit = min(length(u_peak), length(l_peak));
+    diff = u_peak(1:limit)+abs(l_peak(1:limit));
+    mean_ptp_1000(i) = mean(diff);
+    
+    % 5000 Hz
+    u_peak = findpeaks(mic_5000(3200:11000,i), 'MinPeakHeight', 0.04, ...
+                                               'MinPeakDistance', 200);
+    l_peak = findpeaks(-mic_5000(3200:11000,i),'MinPeakHeight', 0.04, ...
+                                               'MinPeakDistance', 200);
+    limit = min(length(u_peak), length(l_peak));
+    diff = u_peak(1:limit)+abs(l_peak(1:limit));
+    mean_ptp_5000(i) = mean(diff);
+    
+    % 10000 Hz
+    u_peak = findpeaks(mic_10000(3200:11000,i), 'MinPeakHeight', 0.05, ...
+                                                'MinPeakDistance', 200);
+    l_peak = findpeaks(-mic_10000(3200:11000,i),'MinPeakHeight', 0.05, ...
+                                                'MinPeakDistance', 200);
+    limit = min(length(u_peak), length(l_peak));
+    diff = u_peak(1:limit)+abs(l_peak(1:limit));
+    mean_ptp_10000(i) = mean(diff);
+    
+    % 15000 Hz
+    u_peak = findpeaks(mic_15000(3200:11000,i), 'MinPeakHeight', 0.02, ...
+                                                'MinPeakDistance', 200);
+    l_peak = findpeaks(-mic_15000(3200:11000,i),'MinPeakHeight', 0.02, ...
+                                                'MinPeakDistance', 200);
+    limit = min(length(u_peak), length(l_peak));
+    diff = u_peak(1:limit)+abs(l_peak(1:limit));
+    mean_ptp_15000(i) = mean(diff);
+end
 
-%% Plot frequency spectrum
-figure;
-plot(f(N/2:end), abs(freq_amplitude(N/2:end)/N));
-xlabel('Frequency (Hz)');
-title('Magnitude Response');
+% Flip so that index represents distance
+mean_ptp_1000 = fliplr(mean_ptp_1000);
+mean_ptp_5000 = fliplr(mean_ptp_5000);
+mean_ptp_10000 = fliplr(mean_ptp_10000);
+mean_ptp_15000 = fliplr(mean_ptp_15000);
+
+% remove invalid values
+mean_ptp_1000([11,9,7,3]) = NaN;
+mean_ptp_5000([12,10,9,8]) = NaN;
+mean_ptp_10000([10,9,4]) = NaN;
+mean_ptp_15000([10,9,5]) = NaN;
+clf;
+hold on;
+plot(mean_ptp_15000,'o');
+plot(distance_vector,amp_15000);
+hold off;
+
+%% Plot the results
+figure; hold on;
+set(gcf, 'PaperUnits', 'centimeters');      % set size units to cm
+set(gcf, 'PaperPosition', [0 0 24 14]);     % set size
+    
+subplot(2,2,1); hold on; grid minor;
+plot(mean_ptp_1000,'o');
+plot(distance_vector,amp_1000);
+title('1000 Hz');
+xlabel('Distance (m)'); ylabel('Amplitude (V_{pp})');
+
+subplot(2,2,2); hold on; grid minor;
+dot5000 = plot(mean_ptp_5000,'o');
+line5000 = plot(distance_vector,amp_5000);
+title('5000 Hz');
+xlabel('Distance (m)'); ylabel('Amplitude (V_{pp})');
+
+subplot(2,2,3); hold on; grid minor;
+plot(mean_ptp_10000,'o');
+plot(distance_vector,amp_10000);
+title('10000 Hz');
+xlabel('Distance (m)'); ylabel('Amplitude (V_{pp})');
+
+subplot(2,2,4); hold on; grid minor;
+plot(mean_ptp_15000,'o');
+plot(distance_vector,amp_15000);
+title('15000 Hz');
+xlabel('Distance (m)'); ylabel('Amplitude (V_{pp})');
+    
+suptitle(sprintf('Resulting Amplitudes', 18-i));
+hL = legend([dot5000, line5000], {'Mean V_{pp}', 'Rough V_{pp}'});
+
+filename = 'output/res_amp';
+saveas(gcf, filename, 'png');
+
+%% Convert Voltage to sound level
+figure; hold on;
+set(gcf, 'PaperUnits', 'centimeters');      % set size units to cm
+set(gcf, 'PaperPosition', [0 0 26 18]);     % set size
+   
+subplot(2,2,1); hold on; grid minor;
+plot(arrayfun(@spl,mean_ptp_1000),'o');
+plot(distance_vector,arrayfun(@spl,amp_1000));
+ylim([55 85]);
+title('1000 Hz');
+xlabel('Distance (m)'); ylabel('Sound Pressure Level (dB)');
+
+subplot(2,2,2); hold on; grid minor;
+dot5000 = plot(arrayfun(@spl,mean_ptp_5000),'o');
+line5000 = plot(distance_vector,arrayfun(@spl,amp_5000));
+ylim([55 85]);
+title('5000 Hz');
+xlabel('Distance (m)'); ylabel('Sound Pressure Level (dB)');
+
+subplot(2,2,3); hold on; grid minor;
+plot(arrayfun(@spl,mean_ptp_10000),'o');
+plot(distance_vector,arrayfun(@spl,amp_10000));
+ylim([55 85]);
+title('10000 Hz');
+xlabel('Distance (m)'); ylabel('Sound Pressure Level (dB)');
+
+subplot(2,2,4); hold on; grid minor;
+plot(arrayfun(@spl,mean_ptp_15000),'o');
+plot(distance_vector,arrayfun(@spl,amp_15000));
+ylim([55 85]);
+title('15000 Hz');
+xlabel('Distance (m)'); ylabel('Sound Pressure Level (dB)');
+    
+suptitle('Resulting Amplitudes');
+legend([dot5000, line5000], {'Mean Pressure Level', 'Rough Pressure Level'});
+
+filename = 'output/res_amp';
+saveas(gcf, filename, 'png');
